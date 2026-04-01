@@ -14,6 +14,17 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    defer-datasource-initialization: true
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:init/data.sql
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
