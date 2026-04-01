@@ -13,10 +13,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Component
 public class RequestResponseLoggingFilter extends OncePerRequestFilter {
+
+    public static final int CACHE_LIMIT = 4096;
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doFilterInternal(
@@ -29,7 +33,7 @@ public class RequestResponseLoggingFilter extends OncePerRequestFilter {
             return;
         }
 
-        ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request, 1024);
+        ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request, CACHE_LIMIT);
         ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
 
         String traceId = UUID.randomUUID().toString().substring(0, 8);
@@ -74,6 +78,11 @@ public class RequestResponseLoggingFilter extends OncePerRequestFilter {
         if (json == null || json.isBlank()) {
             return "";
         }
-        return json.replaceAll("\\s+", " ").trim();
+        try {
+            Object parsed = objectMapper.readTree(json);
+            return objectMapper.writeValueAsString(parsed);
+        } catch (Exception e) {
+            return json.trim();
+        }
     }
 }

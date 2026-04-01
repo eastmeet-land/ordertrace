@@ -69,7 +69,7 @@
     <Async name="ASYNC_UNIFIED_TCP"
       bufferSize="8192"
       shutdownTimeout="3000"
-      includeLocation="true"
+      includeLocation="false"
       blocking="false">
       <AppenderRef ref="UNIFIED_TCP_APPENDER"/>
     </Async>
