@@ -1,5 +1,6 @@
 package eastmeet.ordertrace.order.domain;
 
+import eastmeet.ordertrace.global.domain.Currency;
 import eastmeet.ordertrace.global.entity.BaseTimeEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -28,21 +29,21 @@ public class Order extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(comment = "주문 ID")
+    @Column(name = "id", comment = "주문 ID")
     private Long id;
 
-    @Column(nullable = false, comment = "회원 ID")
+    @Column(name = "member_id", nullable = false, comment = "회원 ID")
     private Long memberId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, comment = "주문 상태")
+    @Column(name = "status", nullable = false, comment = "주문 상태")
     private OrderStatus status;
 
-    @Column(nullable = false, comment = "총 주문 금액")
+    @Column(name = "total_amount", nullable = false, comment = "총 주문 금액")
     private BigDecimal totalAmount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, comment = "통화")
+    @Column(name = "currency", nullable = false, comment = "통화")
     private Currency currency;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)

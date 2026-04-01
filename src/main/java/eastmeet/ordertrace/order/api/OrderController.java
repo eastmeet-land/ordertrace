@@ -1,5 +1,6 @@
 package eastmeet.ordertrace.order.api;
 
+import eastmeet.ordertrace.order.api.dto.OrderCreateResponse;
 import eastmeet.ordertrace.order.api.dto.OrderRequest;
 import eastmeet.ordertrace.order.api.dto.OrderResponse;
 import eastmeet.ordertrace.order.domain.Order;
@@ -24,18 +25,20 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(@RequestBody @Valid OrderRequest request) {
+    public ResponseEntity<OrderCreateResponse> createOrder(@RequestBody @Valid OrderRequest request) {
         Order order = orderService.createOrder(
             request.memberId(),
             request.productId(),
-            request.quantity()
+            request.quantity(),
+            request.currency(),
+            request.scenario().name()
         );
-        return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(order));
+        return ResponseEntity.status(HttpStatus.CREATED).body(OrderCreateResponse.from(order));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getOrder(@PathVariable Long id) {
-        Order order = orderService.findById(id);
+        Order order = orderService.getOrderWithItemsByOrderId(id);
         return ResponseEntity.ok(OrderResponse.from(order));
     }
 
