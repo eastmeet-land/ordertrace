@@ -2,6 +2,8 @@ package eastmeet.ordertrace.payment.service;
 
 import eastmeet.ordertrace.global.domain.Currency;
 import eastmeet.ordertrace.payment.domain.Payment;
+import eastmeet.ordertrace.payment.event.PaymentApprovedEvent;
+import eastmeet.ordertrace.payment.event.PaymentFailedEvent;
 import eastmeet.ordertrace.payment.port.PaymentProcessor;
 import eastmeet.ordertrace.payment.port.PaymentRequest;
 import eastmeet.ordertrace.payment.port.PaymentResult;
@@ -11,6 +13,7 @@ import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +25,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentProcessor paymentProcessor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Payment processPayment(Long orderId, BigDecimal amount, Currency currency, PaymentScenario scenario) {
@@ -36,9 +40,11 @@ public class PaymentService {
 
         if (result.isSuccess()) {
             payment.markApproved();
+            eventPublisher.publishEvent(new PaymentApprovedEvent(orderId, payment.getId()));
             log.info("결제 승인 완료 - orderId: {}, paymentId: {}", orderId, payment.getId());
         } else {
             payment.markRejected(result.failureReason());
+            eventPublisher.publishEvent(new PaymentFailedEvent(orderId, payment.getId(), result.failureReason()));
             log.error("결제 거절 - orderId: {}, reason: {}", orderId, result.failureReason());
         }
 

@@ -28,7 +28,9 @@ public class OrderController {
         Order order = orderService.createOrder(
             request.memberId(),
             request.productId(),
-            request.quantity()
+            request.quantity(),
+            request.currency(),
+            request.scenario()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(order));
     }

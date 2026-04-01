@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @EntityGraph(attributePaths = {"orderItems"})
-    Optional<Order> findById(Long id);
+    Optional<Order> findWithItemsById(Long id);
 
 
 }
