@@ -1,5 +1,6 @@
 package eastmeet.ordertrace.order.api.dto;
 
+import eastmeet.ordertrace.order.domain.Currency;
 import eastmeet.ordertrace.order.domain.Order;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
@@ -20,7 +21,7 @@ public record OrderResponse(
     BigDecimal totalAmount,
 
     @Schema(description = "통화", example = "KRW")
-    String currency,
+    Currency currency,
 
     @Schema(description = "주문 상품 목록")
     List<OrderItemResponse> orderItems,

@@ -1,5 +1,6 @@
-package eastmeet.ordertrace.order.sevice;
+package eastmeet.ordertrace.order.service;
 
+import eastmeet.ordertrace.order.domain.Currency;
 import eastmeet.ordertrace.order.domain.Order;
 import eastmeet.ordertrace.order.domain.OrderItem;
 import eastmeet.ordertrace.order.repository.OrderRepository;
@@ -24,7 +25,7 @@ public class OrderService {
     public Order createOrder(Long memberId, Long productId, Integer quantity) {
         Product product = productService.findById(productId);
 
-        Order order = new Order(memberId, "KRW");
+        Order order = new Order(memberId, Currency.KRW);
 
         OrderItem orderItem = new OrderItem(
             product.getId(),

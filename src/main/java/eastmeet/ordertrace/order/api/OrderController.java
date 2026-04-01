@@ -3,7 +3,7 @@ package eastmeet.ordertrace.order.api;
 import eastmeet.ordertrace.order.api.dto.OrderRequest;
 import eastmeet.ordertrace.order.api.dto.OrderResponse;
 import eastmeet.ordertrace.order.domain.Order;
-import eastmeet.ordertrace.order.sevice.OrderService;
+import eastmeet.ordertrace.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

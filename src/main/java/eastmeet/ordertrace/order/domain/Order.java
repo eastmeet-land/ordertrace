@@ -41,15 +41,16 @@ public class Order extends BaseTimeEntity {
     @Column(nullable = false, comment = "총 주문 금액")
     private BigDecimal totalAmount;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, comment = "통화")
-    private String currency;
+    private Currency currency;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    public Order(Long memberId, String currency) {
+    public Order(Long memberId, Currency currency) {
         Assert.notNull(memberId, "회원 ID는 필수입니다.");
-        Assert.hasText(currency, "통화는 필수입니다.");
+        Assert.notNull(currency, "통화는 필수입니다.");
 
         this.memberId = memberId;
         this.status = OrderStatus.CREATED;
