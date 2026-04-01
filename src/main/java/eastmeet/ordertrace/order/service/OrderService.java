@@ -1,6 +1,6 @@
 package eastmeet.ordertrace.order.service;
 
-import eastmeet.ordertrace.order.domain.Currency;
+import eastmeet.ordertrace.global.domain.Currency;
 import eastmeet.ordertrace.order.domain.Order;
 import eastmeet.ordertrace.order.domain.OrderItem;
 import eastmeet.ordertrace.order.repository.OrderRepository;

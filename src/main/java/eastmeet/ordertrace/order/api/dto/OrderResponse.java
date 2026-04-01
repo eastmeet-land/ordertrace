@@ -1,6 +1,6 @@
 package eastmeet.ordertrace.order.api.dto;
 
-import eastmeet.ordertrace.order.domain.Currency;
+import eastmeet.ordertrace.global.domain.Currency;
 import eastmeet.ordertrace.order.domain.Order;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
