@@ -28,7 +28,7 @@ public class PaymentService {
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
 
-    public Payment processPayment(Long orderId, BigDecimal amount, Currency currency, PaymentScenario scenario) {
+    public void processPayment(Long orderId, BigDecimal amount, Currency currency, PaymentScenario scenario) {
         // 1. 결제 요청 저장(트랜잭션 1)
         Long paymentId = transactionTemplate.execute(status -> {
             Payment saved = paymentRepository.save(new Payment(orderId, amount, currency));
@@ -42,7 +42,7 @@ public class PaymentService {
         );
 
         // 3. 결제 결과 반영 (트랜잭션 2)
-        return transactionTemplate.execute(status -> {
+        transactionTemplate.executeWithoutResult(status -> {
             Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(
                     () -> new EntityNotFoundException("결제를 찾을 수 없습니다. paymentId: " + paymentId)
@@ -57,8 +57,6 @@ public class PaymentService {
                 eventPublisher.publishEvent(new PaymentFailedEvent(orderId, payment.getId(), result.failureReason()));
                 log.error("결제 거절 - orderId: {}, reason: {}", orderId, result.failureReason());
             }
-
-            return payment;
         });
     }
 
