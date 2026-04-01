@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+  <Properties>
+    <!-- Spring 설정값 가져오기 -->
+    <Property name="APP_NAME">ordertrace</Property>
+    <Property name="SPRING_PROFILE">${spring:spring.profiles.active:-local}</Property>
+
+    <!-- 콘솔용 컬러 패턴 -->
+    <Property name="COLOR_PATTERN">
+      [%clr{%d{yyyy-MM-dd HH:mm:ss.SSS}}{faint}][%clr{%5p}][%clr{${sys:PID}}{magenta}] %clr{---}{faint} %clr{[%15.15t]}{faint} %clr{%logger{36}:%L}{cyan} %clr{:}{faint} %m%n
+    </Property>
+
+    <!-- TCP 전송용 JSON 패턴 - 일반 로그 -->
+    <Property name="TCP_JSON_PATTERN">
+      {"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%p","pid":"${sys:PID}","thread":"%t","logger":"%c{1}","logger_name":"%c","method":"%M","line":"%L","message":"%enc{%m}{JSON}","host":"${hostName}","application":"${APP_NAME}-${SPRING_PROFILE}","log_type":"application"}
+    </Property>
+
+    <!-- SQL 쿼리용 JSON 패턴 -->
+    <Property name="SQL_JSON_PATTERN">
+      {"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%p","pid":"${sys:PID}","thread":"%t","logger":"sql","logger_name":"SQL","method":"%M","line":"%L","message":"%enc{%m}{JSON}","host":"${hostName}","application":"${APP_NAME}-${SPRING_PROFILE}","log_type":"sql_query"}
+    </Property>
+
+    <!-- ERROR용 JSON 패턴 - 스택트레이스 포함 -->
+    <Property name="ERROR_JSON_PATTERN">
+      {"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%p","pid":"${sys:PID}","thread":"%t","logger":"%c{1}","logger_name":"%c","method":"%M","line":"%L","message":"%enc{%m}{JSON}","exception":"%enc{%ex}{JSON}","host":"${hostName}","application":"${APP_NAME}-${SPRING_PROFILE}","log_type":"error"}
+    </Property>
+  </Properties>
+
+  <Appenders>
+    <!-- 콘솔 출력 -->
+    <Console name="CONSOLE_APPENDER" target="SYSTEM_OUT">
+      <PatternLayout pattern="${COLOR_PATTERN}"/>
+    </Console>
+
+    <!-- 통합 TCP Appender - 일반 로그를 Fluent Bit으로 전송 -->
+    <Socket name="UNIFIED_TCP_APPENDER"
+      host="${sys:log.server.ip:-localhost}"
+      port="24224"
+      protocol="TCP"
+      bufferedIO="false"
+      immediateFlush="true"
+      ignoreExceptions="true">
+      <PatternLayout charset="UTF-8" pattern="${TCP_JSON_PATTERN}"/>
+    </Socket>
+
+    <!-- SQL 전용 TCP Appender -->
+    <Socket name="SQL_TCP_APPENDER"
+      host="${sys:log.server.ip:-localhost}"
+      port="24224"
+      protocol="TCP"
+      bufferedIO="false"
+      immediateFlush="true"
+      ignoreExceptions="true">
+      <PatternLayout charset="UTF-8" pattern="${SQL_JSON_PATTERN}"/>
+    </Socket>
+
+    <!-- ERROR 전용 TCP Appender -->
+    <Socket name="ERROR_TCP_APPENDER"
+      host="${sys:log.server.ip:-localhost}"
+      port="24224"
+      protocol="TCP"
+      bufferedIO="false"
+      immediateFlush="true"
+      ignoreExceptions="true">
+      <PatternLayout charset="UTF-8" pattern="${ERROR_JSON_PATTERN}"/>
+    </Socket>
+
+    <!-- 비동기 래퍼 - 일반 로그 -->
+    <Async name="ASYNC_UNIFIED_TCP"
+      bufferSize="8192"
+      shutdownTimeout="3000"
+      includeLocation="true"
+      blocking="false">
+      <AppenderRef ref="UNIFIED_TCP_APPENDER"/>
+    </Async>
+
+    <!-- 비동기 래퍼 - SQL 로그 -->
+    <Async name="ASYNC_SQL_TCP"
+      bufferSize="4096"
+      shutdownTimeout="3000"
+      includeLocation="false">
+      <AppenderRef ref="SQL_TCP_APPENDER"/>
+    </Async>
+
+    <!-- 비동기 래퍼 - ERROR 로그 -->
+    <Async name="ASYNC_ERROR_TCP"
+      bufferSize="2048"
+      shutdownTimeout="3000"
+      includeLocation="true"
+      blocking="false">
+      <AppenderRef ref="ERROR_TCP_APPENDER"/>
+    </Async>
+  </Appenders>
+
+  <Loggers>
+    <!-- 외부 라이브러리 로그 레벨 조정 -->
+    <Logger name="org.springframework" level="WARN"/>
+    <Logger name="org.apache.http" level="WARN"/>
+    <Logger name="org.hibernate" level="WARN"/>
+    <Logger name="com.zaxxer.hikari" level="WARN"/>
+
+    <!-- local 환경 - 콘솔만 -->
+    <SpringProfile name="local">
+      <Logger name="p6spy" level="INFO" additivity="false">
+        <AppenderRef ref="CONSOLE_APPENDER"/>
+      </Logger>
+
+      <Root level="INFO" additivity="false">
+        <AppenderRef ref="CONSOLE_APPENDER"/>
+      </Root>
+    </SpringProfile>
+
+    <!-- docker 환경 - 콘솔 + TCP (EFK) -->
+    <SpringProfile name="docker">
+      <Logger name="p6spy" level="INFO" additivity="false">
+        <AppenderRef ref="CONSOLE_APPENDER"/>
+        <AppenderRef ref="ASYNC_SQL_TCP"/>
+      </Logger>
+
+      <Root level="INFO" additivity="false">
+        <AppenderRef ref="CONSOLE_APPENDER"/>
+        <AppenderRef ref="ASYNC_UNIFIED_TCP">
+          <ThresholdFilter level="ERROR" onMatch="DENY" onMismatch="ACCEPT"/>
+        </AppenderRef>
+        <AppenderRef ref="ASYNC_ERROR_TCP" level="ERROR"/>
+      </Root>
+    </SpringProfile>
+  </Loggers>
+</Configuration>
