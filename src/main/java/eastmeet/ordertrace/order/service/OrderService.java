@@ -6,7 +6,6 @@ import eastmeet.ordertrace.order.domain.OrderItem;
 import eastmeet.ordertrace.order.event.OrderCancelledEvent;
 import eastmeet.ordertrace.order.event.OrderCreatedEvent;
 import eastmeet.ordertrace.order.repository.OrderRepository;
-import eastmeet.ordertrace.payment.port.PaymentScenario;
 import eastmeet.ordertrace.product.domain.Product;
 import eastmeet.ordertrace.product.service.ProductService;
 import jakarta.persistence.EntityNotFoundException;
@@ -27,7 +26,7 @@ public class OrderService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public Order createOrder(Long memberId, Long productId, Integer quantity, Currency currency, PaymentScenario scenario) {
+    public Order createOrder(Long memberId, Long productId, Integer quantity, Currency currency, String scenario) {
         Product product = productService.findById(productId);
 
         Order order = new Order(memberId, currency);

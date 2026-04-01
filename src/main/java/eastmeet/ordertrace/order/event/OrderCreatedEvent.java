@@ -1,7 +1,6 @@
 package eastmeet.ordertrace.order.event;
 
 import eastmeet.ordertrace.global.domain.Currency;
-import eastmeet.ordertrace.payment.port.PaymentScenario;
 import java.math.BigDecimal;
 
 public record OrderCreatedEvent(
@@ -11,7 +10,7 @@ public record OrderCreatedEvent(
 
     Currency currency,
 
-    PaymentScenario scenario
+    String scenario
 
 ) {
 
