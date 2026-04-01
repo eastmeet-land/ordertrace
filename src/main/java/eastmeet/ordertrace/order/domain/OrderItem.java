@@ -23,23 +23,23 @@ public class OrderItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(comment = "주문 상품 ID")
+    @Column(name = "id", comment = "주문 상품 ID")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false, comment = "주문 ID")
     private Order order;
 
-    @Column(nullable = false, comment = "상품 ID")
+    @Column(name = "product_id", nullable = false, comment = "상품 ID")
     private Long productId;
 
-    @Column(nullable = false, comment = "수량")
+    @Column(name = "quantity", nullable = false, comment = "수량")
     private Integer quantity;
 
-    @Column(nullable = false, comment = "단가")
+    @Column(name = "unit_price", nullable = false, comment = "단가")
     private BigDecimal unitPrice;
 
-    @Column(nullable = false, comment = "소계")
+    @Column(name = "subtotal", nullable = false, comment = "소계")
     private BigDecimal subtotal;
 
     public OrderItem(Long productId, Integer quantity, BigDecimal unitPrice) {

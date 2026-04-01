@@ -21,18 +21,19 @@ public class Product extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", comment = "상품 ID")
     private Long id;
 
-    @Column(nullable = false, comment = "제품명")
+    @Column(name = "name", nullable = false, comment = "상품명")
     private String name;
 
-    @Column(comment = "제품 설명")
+    @Column(name = "description", comment = "상품 설명")
     private String description;
 
-    @Column(nullable = false, comment = "가격")
+    @Column(name = "price", nullable = false, comment = "가격")
     private BigDecimal price;
 
-    @Column(nullable = false, comment = "재고 수량")
+    @Column(name = "stock_quantity", nullable = false, comment = "재고 수량")
     private Integer stockQuantity;
 
     public Product(String name, String description, BigDecimal price, Integer stockQuantity) {
