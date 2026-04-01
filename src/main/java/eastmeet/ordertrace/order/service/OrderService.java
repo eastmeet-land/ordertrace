@@ -54,15 +54,23 @@ public class OrderService {
         return order;
     }
 
-    public Order findById(Long id) {
-        return orderRepository.findWithItemsById(id)
-            .orElseThrow(() -> new EntityNotFoundException(
-                "주문을 찾을 수 없습니다. id: " + id));
+    public Order getOrderWithItemsByOrderId(Long orderId) {
+        return orderRepository.findWithItemsById(orderId)
+            .orElseThrow(
+                () -> new EntityNotFoundException("주문을 찾을 수 없습니다. id: " + orderId)
+            );
+    }
+
+    public Order getOrderById(Long orderId) {
+        return orderRepository.findById(orderId)
+            .orElseThrow(
+                () -> new EntityNotFoundException("주문을 찾을 수 없습니다. id: " + orderId)
+            );
     }
 
     @Transactional
     public void cancelOrder(Long id) {
-        Order order = findById(id);
+        Order order = getOrderById(id);
         order.cancel();
 
         eventPublisher.publishEvent(new OrderCancelledEvent(order.getId()));
@@ -71,14 +79,14 @@ public class OrderService {
 
     @Transactional
     public void confirmOrder(Long id) {
-        Order order = findById(id);
+        Order order = getOrderById(id);
         order.markConfirmed();
         log.info("주문 확정 - orderId: {}", id);
     }
 
     @Transactional
     public void failOrder(Long id) {
-        Order order = findById(id);
+        Order order = getOrderById(id);
         order.markFailed();
         log.info("주문 실패 - orderId: {}", id);
     }
