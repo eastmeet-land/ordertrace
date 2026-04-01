@@ -16,54 +16,69 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentProcessor paymentProcessor;
     private final ApplicationEventPublisher eventPublisher;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public Payment processPayment(Long orderId, BigDecimal amount, Currency currency, PaymentScenario scenario) {
-        Payment payment = new Payment(orderId, amount, currency);
-        paymentRepository.save(payment);
+        // 1. 결제 요청 저장(트랜잭션 1)
+        Long paymentId = transactionTemplate.execute(status -> {
+            Payment saved = paymentRepository.save(new Payment(orderId, amount, currency));
+            saved.markProcessing();
+            return saved.getId();
+        });
 
-        payment.markProcessing();
-
+        // 2. 외부 연동 (트랜잭션 없음 - DB 커넥션 미점유)
         PaymentResult result = paymentProcessor.process(
             new PaymentRequest(orderId, amount, currency, scenario)
         );
 
-        if (result.isSuccess()) {
-            payment.markApproved();
-            eventPublisher.publishEvent(new PaymentApprovedEvent(orderId, payment.getId()));
-            log.info("결제 승인 완료 - orderId: {}, paymentId: {}", orderId, payment.getId());
-        } else {
-            payment.markRejected(result.failureReason());
-            eventPublisher.publishEvent(new PaymentFailedEvent(orderId, payment.getId(), result.failureReason()));
-            log.error("결제 거절 - orderId: {}, reason: {}", orderId, result.failureReason());
-        }
+        // 3. 결제 결과 반영 (트랜잭션 2)
+        return transactionTemplate.execute(status -> {
+            Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(
+                    () -> new EntityNotFoundException("결제를 찾을 수 없습니다. paymentId: " + paymentId)
+                );
 
-        return payment;
+            if (result.isSuccess()) {
+                payment.markApproved();
+                eventPublisher.publishEvent(new PaymentApprovedEvent(orderId, payment.getId()));
+                log.info("결제 승인 완료 - orderId: {}, paymentId: {}", orderId, payment.getId());
+            } else {
+                payment.markRejected(result.failureReason());
+                eventPublisher.publishEvent(new PaymentFailedEvent(orderId, payment.getId(), result.failureReason()));
+                log.error("결제 거절 - orderId: {}, reason: {}", orderId, result.failureReason());
+            }
+
+            return payment;
+        });
     }
 
     @Transactional
     public void refund(Long orderId) {
         Payment payment = paymentRepository.findByOrderId(orderId)
-            .orElseThrow(() -> new EntityNotFoundException(
-                "결제를 찾을 수 없습니다. orderId: " + orderId));
+            .orElseThrow(
+                () -> new EntityNotFoundException("결제를 찾을 수 없습니다. orderId: " + orderId)
+            );
+
         payment.markRefunded();
         log.info("환불 처리 완료 - orderId: {}, paymentId: {}", orderId, payment.getId());
     }
 
-    public Payment findByOrderId(Long orderId) {
+    @Transactional(readOnly = true)
+    public Payment getPaymentByOrderId(Long orderId) {
         return paymentRepository.findByOrderId(orderId)
-            .orElseThrow(() -> new EntityNotFoundException(
-                "결제를 찾을 수 없습니다. orderId: " + orderId));
+            .orElseThrow(
+                () -> new EntityNotFoundException("결제를 찾을 수 없습니다. orderId: " + orderId)
+            );
     }
 
 }
