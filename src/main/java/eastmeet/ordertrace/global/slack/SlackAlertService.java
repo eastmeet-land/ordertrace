@@ -7,6 +7,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
@@ -17,20 +18,23 @@ public class SlackAlertService {
 
     private static final String KIBANA_DISCOVER_PATH = "/app/discover#/";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final RestClient restClient;
     private final String webhookUrl;
     private final String kibanaBaseUrl;
+    private final ObjectMapper objectMapper;
 
     public SlackAlertService(
         @Value("${slack.webhook-url:}") String webhookUrl,
-        @Value("${kibana.base-url:http://localhost:5601}") String kibanaBaseUrl) {
+        @Value("${kibana.base-url:http://localhost:5601}") String kibanaBaseUrl,
+        ObjectMapper objectMapper) {
         this.restClient = RestClient.create();
         this.webhookUrl = webhookUrl;
         this.kibanaBaseUrl = kibanaBaseUrl;
+        this.objectMapper = objectMapper;
     }
 
+    @Async("paymentExecutor")
     public void send(SlackAlert alert) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             log.warn("Slack Webhook URL이 설정되지 않았습니다.");
