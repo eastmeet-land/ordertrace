@@ -1,5 +1,6 @@
 ### ============================================
 ### OrderTrace 데모 시나리오
+### IntelliJ HTTP Client에서 순서대로 실행
 ### ============================================
 
 ### ============================================
@@ -19,23 +20,27 @@ Content-Type: application/json
 
 {"memberId": 1, "items": [{"productId": 1, "quantity": 2}, {"productId": 2, "quantity": 1}], "currency": "KRW", "scenario": "SUCCESS"}
 
-### 2-2. 주문 조회 (상태: 주문 확정, 재고 -2)
-GET http://localhost:18080/api/v1/orders/{id}
+> {%
+    client.global.set("orderId", response.body.id);
+%}
+
+### 2-2. 주문 조회 (상태: 주문 확정)
+GET http://localhost:18080/api/v1/orders/{{orderId}}
 
 ### 2-3. 결제 상태 조회 (상태: 결제 승인)
-GET http://localhost:18080/api/v1/payments/orders/{id}
+GET http://localhost:18080/api/v1/payments/orders/{{orderId}}
 
 ### 2-4. 상품 조회 (재고 차감 확인)
 GET http://localhost:18080/api/v1/products/1
 
 ### 2-5. 주문 취소 (환불 처리)
-DELETE http://localhost:18080/api/v1/orders/{id}
+DELETE http://localhost:18080/api/v1/orders/{{orderId}}
 
 ### 2-6. 주문 조회 (상태: 주문 취소)
-GET http://localhost:18080/api/v1/orders/{id}
+GET http://localhost:18080/api/v1/orders/{{orderId}}
 
 ### 2-7. 결제 상태 조회 (상태: 환불 완료)
-GET http://localhost:18080/api/v1/payments/orders/{id}
+GET http://localhost:18080/api/v1/payments/orders/{{orderId}}
 
 ### ============================================
 ### 3. 결제 실패 흐름 (TIMEOUT → 실패 → Slack 알림 → 재고 복원)
@@ -50,11 +55,15 @@ Content-Type: application/json
 
 {"memberId": 1, "items": [{"productId": 1, "quantity": 1}], "currency": "KRW", "scenario": "TIMEOUT"}
 
+> {%
+    client.global.set("failedOrderId", response.body.id);
+%}
+
 ### 3-3. 주문 조회 (상태: 주문 실패)
-GET http://localhost:18080/api/v1/orders/{id}
+GET http://localhost:18080/api/v1/orders/{{failedOrderId}}
 
 ### 3-4. 결제 상태 조회 (상태: 결제 거절, 사유: 결제 처리 시간 초과)
-GET http://localhost:18080/api/v1/payments/orders/{id}
+GET http://localhost:18080/api/v1/payments/orders/{{failedOrderId}}
 
 ### 3-5. 상품 조회 (재고 복원 확인)
 GET http://localhost:18080/api/v1/products/1
@@ -67,13 +76,13 @@ GET http://localhost:18080/api/v1/products/1
 POST http://localhost:18080/api/v1/orders
 Content-Type: application/json
 
-{"memberId": 1, "productId": 1, "quantity": 1, "currency": "KRW", "scenario": "INSUFFICIENT_BALANCE"}
+{"memberId": 1, "items": [{"productId": 1, "quantity": 1}], "currency": "KRW", "scenario": "INSUFFICIENT_BALANCE"}
 
 ### 4-2. PG사 오류
 POST http://localhost:18080/api/v1/orders
 Content-Type: application/json
 
-{"memberId": 1, "productId": 1, "quantity": 1, "currency": "KRW", "scenario": "GATEWAY_ERROR"}
+{"memberId": 1, "items": [{"productId": 1, "quantity": 1}], "currency": "KRW", "scenario": "GATEWAY_ERROR"}
 
 ### ============================================
 ### 5. 에러 응답 시나리오
@@ -89,19 +98,19 @@ GET http://localhost:18080/api/v1/payments/orders/999
 POST http://localhost:18080/api/v1/orders
 Content-Type: application/json
 
-{"memberId": 1, "productId": 1, "quantity": 1, "currency": "KRW", "scenario": "INVALID"}
+{"memberId": 1, "items": [{"productId": 1, "quantity": 1}], "currency": "KRW", "scenario": "INVALID"}
 
 ### 5-4. 필수 값 누락 (400)
 POST http://localhost:18080/api/v1/orders
 Content-Type: application/json
 
-{"productId": 1, "quantity": 1, "currency": "KRW", "scenario": "SUCCESS"}
+{"items": [{"productId": 1, "quantity": 1}], "currency": "KRW", "scenario": "SUCCESS"}
 
 ### 5-5. 수량 0 (400)
 POST http://localhost:18080/api/v1/orders
 Content-Type: application/json
 
-{"memberId": 1, "productId": 1, "quantity": 0, "currency": "KRW", "scenario": "SUCCESS"}
+{"memberId": 1, "items": [{"productId": 1, "quantity": 0}], "currency": "KRW", "scenario": "SUCCESS"}
 
 ### ============================================
 ### 6. 500 서버 오류 테스트 (docker 프로필에서만 동작)

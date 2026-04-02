@@ -29,8 +29,7 @@ public class OrderEventListener {
     @KafkaHandler
     public void handlePaymentFailed(PaymentFailedEvent event) {
         log.info("결제 실패 이벤트 수신 - orderId: {}, thread: {}", event.orderId(), Thread.currentThread().getName());
-        orderService.failOrder(event.orderId());
-        orderService.restoreStock(event.orderId());
+        orderService.failOrderAndRestoreStock(event.orderId());
     }
 
 }

@@ -43,23 +43,17 @@ public class PaymentService {
         });
 
         // 2. 외부 연동 (트랜잭션 없음 - DB 커넥션 미점유)
-        PaymentResult result = paymentProcessor.process(
-            new PaymentRequest(orderId, amount, currency, scenario)
-        );
+        PaymentResult result = paymentProcessor.process(new PaymentRequest(orderId, amount, currency, scenario));
 
         // 3. 결제 결과 반영 (트랜잭션 2)
         transactionTemplate.executeWithoutResult(status -> {
             Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                    "결제를 찾을 수 없습니다. paymentId: " + paymentId));
+                .orElseThrow(
+                    () -> new EntityNotFoundException("결제를 찾을 수 없습니다. paymentId: " + paymentId)
+                );
 
             if (result.isSuccess()) {
                 payment.markApproved();
-                eventPublisher.publish(
-                    PAYMENT_EVENTS_TOPIC,
-                    String.valueOf(orderId),
-                    new PaymentApprovedEvent(orderId, payment.getId())
-                );
                 log.info("결제 승인 완료 - orderId: {}, paymentId: {}", orderId, payment.getId());
             } else {
                 payment.markRejected(result.failureReason());
@@ -72,8 +66,19 @@ public class PaymentService {
             }
         });
 
-        // 4. 트랜잭션 커밋 후 Slack 알림 (트랜잭션 바깥)
-        if (!result.isSuccess()) {
+        // 4. 트랜잭션 커밋 후 이벤트 발행 + Slack 알림 (트랜잭션 바깥)
+        if (result.isSuccess()) {
+            eventPublisher.publish(
+                PAYMENT_EVENTS_TOPIC,
+                String.valueOf(orderId),
+                new PaymentApprovedEvent(orderId, paymentId)
+            );
+        } else {
+            eventPublisher.publish(
+                PAYMENT_EVENTS_TOPIC,
+                String.valueOf(orderId),
+                new PaymentFailedEvent(orderId, paymentId, result.failureReason())
+            );
             slackAlertService.send(new SlackAlert(
                 "🚨",
                 "결제 실패 알림",
