@@ -1,6 +1,8 @@
 package eastmeet.ordertrace.payment.service;
 
 import eastmeet.ordertrace.global.domain.Currency;
+import eastmeet.ordertrace.global.slack.SlackAlert;
+import eastmeet.ordertrace.global.slack.SlackAlertService;
 import eastmeet.ordertrace.payment.domain.Payment;
 import eastmeet.ordertrace.payment.event.PaymentApprovedEvent;
 import eastmeet.ordertrace.payment.event.PaymentFailedEvent;
@@ -27,9 +29,10 @@ public class PaymentService {
     private final PaymentProcessor paymentProcessor;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
-
+    private final SlackAlertService slackAlertService;
     public void processPayment(Long orderId, BigDecimal amount, Currency currency, PaymentScenario scenario) {
-        // 1. 결제 요청 저장(트랜잭션 1)
+
+        // 1. 결제 요청 저장 (트랜잭션 1)
         Long paymentId = transactionTemplate.execute(status -> {
             Payment saved = paymentRepository.save(new Payment(orderId, amount, currency));
             saved.markProcessing();
@@ -44,9 +47,8 @@ public class PaymentService {
         // 3. 결제 결과 반영 (트랜잭션 2)
         transactionTemplate.executeWithoutResult(status -> {
             Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(
-                    () -> new EntityNotFoundException("결제를 찾을 수 없습니다. paymentId: " + paymentId)
-                );
+                .orElseThrow(() -> new EntityNotFoundException(
+                    "결제를 찾을 수 없습니다. paymentId: " + paymentId));
 
             if (result.isSuccess()) {
                 payment.markApproved();
@@ -58,6 +60,16 @@ public class PaymentService {
                 log.error("결제 거절 - orderId: {}, reason: {}", orderId, result.failureReason());
             }
         });
+
+        // 4. 트랜잭션 커밋 후 Slack 알림 (트랜잭션 바깥)
+        if (!result.isSuccess()) {
+            slackAlertService.send(new SlackAlert(
+                "🚨",
+                "결제 실패 알림",
+                String.format("*주문 ID:* %d\n*실패 사유:* %s", orderId, result.failureReason()),
+                String.valueOf(orderId)
+            ));
+        }
     }
 
     @Transactional

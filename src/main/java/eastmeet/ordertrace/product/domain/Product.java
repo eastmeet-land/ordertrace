@@ -51,4 +51,20 @@ public class Product extends BaseTimeEntity {
         this.stockQuantity = stockQuantity;
     }
 
+    public void decreaseStock(Integer quantity) {
+        Assert.notNull(quantity, "수량은 필수입니다.");
+        Assert.isTrue(quantity > 0, "수량은 1 이상이어야 합니다.");
+        if (this.stockQuantity < quantity) {
+            throw new IllegalArgumentException(
+                "재고가 부족합니다. 현재 재고: " + this.stockQuantity + ", 요청 수량: " + quantity);
+        }
+        this.stockQuantity -= quantity;
+    }
+
+    public void increaseStock(Integer quantity) {
+        Assert.notNull(quantity, "수량은 필수입니다.");
+        Assert.isTrue(quantity > 0, "수량은 1 이상이어야 합니다.");
+        this.stockQuantity += quantity;
+    }
+
 }

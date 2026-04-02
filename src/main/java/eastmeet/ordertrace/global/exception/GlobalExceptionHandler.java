@@ -1,9 +1,13 @@
 package eastmeet.ordertrace.global.exception;
 
 
+import eastmeet.ordertrace.global.slack.SlackAlert;
+import eastmeet.ordertrace.global.slack.SlackAlertService;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +20,10 @@ import tools.jackson.databind.exc.InvalidFormatException;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final SlackAlertService slackAlertService;
 
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFound(EntityNotFoundException e) {
@@ -51,8 +58,15 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(Exception e) {
+    public ResponseEntity<ErrorResponse> handleException(HttpServletRequest request, Exception e) {
         log.error("예상하지 못한 서버 오류", e);
+        slackAlertService.send(new SlackAlert(
+            "🔥",
+            "서버 오류 발생",
+            String.format("*예외:* %s\n*메시지:* %s\n*요청 URI:* %s",
+                e.getClass().getSimpleName(), e.getMessage(), request.getRequestURI()),
+            "ERROR"
+        ));
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."));
     }
