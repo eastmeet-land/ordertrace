@@ -37,3 +37,9 @@ springdoc:
 
 logging:
   config: classpath:log4j2-spring.xml
+
+slack:
+  webhook-url: ${SLACK_WEBHOOK_URL:}
+
+kibana:
+  base-url: ${KIBANA_BASE_URL:http://localhost:5601}

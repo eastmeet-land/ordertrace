@@ -1,6 +1,8 @@
 package eastmeet.ordertrace.payment.service;
 
 import eastmeet.ordertrace.global.domain.Currency;
+import eastmeet.ordertrace.global.slack.SlackAlert;
+import eastmeet.ordertrace.global.slack.SlackAlertService;
 import eastmeet.ordertrace.payment.domain.Payment;
 import eastmeet.ordertrace.payment.event.PaymentApprovedEvent;
 import eastmeet.ordertrace.payment.event.PaymentFailedEvent;
@@ -27,6 +29,7 @@ public class PaymentService {
     private final PaymentProcessor paymentProcessor;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
+    private final SlackAlertService slackAlertService;
 
     public void processPayment(Long orderId, BigDecimal amount, Currency currency, PaymentScenario scenario) {
         // 1. 결제 요청 저장(트랜잭션 1)
@@ -56,6 +59,12 @@ public class PaymentService {
                 payment.markRejected(result.failureReason());
                 eventPublisher.publishEvent(new PaymentFailedEvent(orderId, payment.getId(), result.failureReason()));
                 log.error("결제 거절 - orderId: {}, reason: {}", orderId, result.failureReason());
+                slackAlertService.send(new SlackAlert(
+                    "🚨",
+                    "결제 실패 알림",
+                    String.format("*주문 ID:* %d\n*실패 사유:* %s", orderId, result.failureReason()),
+                    String.valueOf(orderId)
+                ));
             }
         });
     }
