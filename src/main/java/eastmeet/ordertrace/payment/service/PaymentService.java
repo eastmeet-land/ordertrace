@@ -1,6 +1,9 @@
 package eastmeet.ordertrace.payment.service;
 
+import static eastmeet.ordertrace.global.config.KafkaConfig.PAYMENT_EVENTS_TOPIC;
+
 import eastmeet.ordertrace.global.domain.Currency;
+import eastmeet.ordertrace.global.event.EventPublisher;
 import eastmeet.ordertrace.global.slack.SlackAlert;
 import eastmeet.ordertrace.global.slack.SlackAlertService;
 import eastmeet.ordertrace.payment.domain.Payment;
@@ -15,7 +18,6 @@ import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -27,9 +29,10 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentProcessor paymentProcessor;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
     private final SlackAlertService slackAlertService;
+
     public void processPayment(Long orderId, BigDecimal amount, Currency currency, PaymentScenario scenario) {
 
         // 1. 결제 요청 저장 (트랜잭션 1)
@@ -52,11 +55,19 @@ public class PaymentService {
 
             if (result.isSuccess()) {
                 payment.markApproved();
-                eventPublisher.publishEvent(new PaymentApprovedEvent(orderId, payment.getId()));
+                eventPublisher.publish(
+                    PAYMENT_EVENTS_TOPIC,
+                    String.valueOf(orderId),
+                    new PaymentApprovedEvent(orderId, payment.getId())
+                );
                 log.info("결제 승인 완료 - orderId: {}, paymentId: {}", orderId, payment.getId());
             } else {
                 payment.markRejected(result.failureReason());
-                eventPublisher.publishEvent(new PaymentFailedEvent(orderId, payment.getId(), result.failureReason()));
+                eventPublisher.publish(
+                    PAYMENT_EVENTS_TOPIC,
+                    String.valueOf(orderId),
+                    new PaymentFailedEvent(orderId, payment.getId(), result.failureReason())
+                );
                 log.error("결제 거절 - orderId: {}, reason: {}", orderId, result.failureReason());
             }
         });

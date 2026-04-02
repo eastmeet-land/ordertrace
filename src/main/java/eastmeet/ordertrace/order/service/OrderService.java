@@ -1,6 +1,9 @@
 package eastmeet.ordertrace.order.service;
 
+import static eastmeet.ordertrace.global.config.KafkaConfig.ORDER_EVENTS_TOPIC;
+
 import eastmeet.ordertrace.global.domain.Currency;
+import eastmeet.ordertrace.global.event.EventPublisher;
 import eastmeet.ordertrace.order.api.dto.OrderItemRequest;
 import eastmeet.ordertrace.order.domain.Order;
 import eastmeet.ordertrace.order.domain.OrderItem;
@@ -16,7 +19,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +30,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductService productService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventPublisher eventPublisher;
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> items, Currency currency, String scenario) {
@@ -60,12 +62,16 @@ public class OrderService {
         orderRepository.save(order);
         order.markPaymentPending();
 
-        eventPublisher.publishEvent(new OrderCreatedEvent(
-            order.getId(),
-            order.getTotalAmount(),
-            order.getCurrency(),
-            scenario
-        ));
+        eventPublisher.publish(
+            ORDER_EVENTS_TOPIC,
+            String.valueOf(order.getId()),
+            new OrderCreatedEvent(
+                order.getId(),
+                order.getTotalAmount(),
+                order.getCurrency(),
+                scenario
+            )
+        );
 
         log.info("주문 생성 및 결제 요청 - orderId: {}, 상품 수: {}", order.getId(), items.size());
         return order;
@@ -90,7 +96,11 @@ public class OrderService {
         Order order = getOrderById(id);
         order.cancel();
 
-        eventPublisher.publishEvent(new OrderCancelledEvent(order.getId()));
+        eventPublisher.publish(
+            ORDER_EVENTS_TOPIC,
+            String.valueOf(order.getId()),
+            new OrderCancelledEvent(order.getId())
+        );
         log.info("주문 취소 - orderId: {}", id);
     }
 

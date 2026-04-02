@@ -1,25 +1,26 @@
 package eastmeet.ordertrace.payment.event;
 
+import static eastmeet.ordertrace.global.config.KafkaConfig.ORDER_EVENTS_TOPIC;
+
 import eastmeet.ordertrace.order.event.OrderCancelledEvent;
 import eastmeet.ordertrace.order.event.OrderCreatedEvent;
 import eastmeet.ordertrace.payment.port.PaymentScenario;
 import eastmeet.ordertrace.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.kafka.annotation.KafkaHandler;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@KafkaListener(topics = ORDER_EVENTS_TOPIC, groupId = "payment-group")
 public class PaymentEventListener {
 
     private final PaymentService paymentService;
 
-    @Async("paymentExecutor")
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @KafkaHandler
     public void handleOrderCreated(OrderCreatedEvent event) {
         log.info("주문 생성 이벤트 수신 - orderId: {}, thread: {}", event.orderId(), Thread.currentThread().getName());
 
@@ -40,8 +41,7 @@ public class PaymentEventListener {
         );
     }
 
-    @Async("paymentExecutor")
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @KafkaHandler
     public void handleOrderCancelled(OrderCancelledEvent event) {
         log.info("주문 취소 이벤트 수신 - orderId: {}, thread: {}", event.orderId(), Thread.currentThread().getName());
         paymentService.refund(event.orderId());
