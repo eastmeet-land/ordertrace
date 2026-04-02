@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -18,11 +19,14 @@ public class SlackAlertService {
 
     private static final String KIBANA_DISCOVER_PATH = "/app/discover#/";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final long THROTTLE_MILLIS = 60_000; // 같은 타입 알림 1분 간격
 
     private final RestClient restClient;
     private final String webhookUrl;
     private final String kibanaBaseUrl;
     private final ObjectMapper objectMapper;
+    private final ConcurrentHashMap<String, Long> lastAlertTimeMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> throttledCountMap = new ConcurrentHashMap<>();
 
     public SlackAlertService(
         @Value("${slack.webhook-url:}") String webhookUrl,
@@ -38,6 +42,11 @@ public class SlackAlertService {
     public void send(SlackAlert alert) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             log.warn("Slack Webhook URL이 설정되지 않았습니다.");
+            return;
+        }
+
+        if (isThrottled(alert.title())) {
+            log.info("Slack 알림 throttled - {}", alert.title());
             return;
         }
 
@@ -90,6 +99,21 @@ public class SlackAlertService {
             log.warn("Slack payload 생성 실패");
             return "{}";
         }
+    }
+
+    private boolean isThrottled(String alertType) {
+        long now = System.currentTimeMillis();
+        Long lastTime = lastAlertTimeMap.get(alertType);
+        if (lastTime != null && (now - lastTime) < THROTTLE_MILLIS) {
+            throttledCountMap.merge(alertType, 1, Integer::sum);
+            return true;
+        }
+        Integer suppressed = throttledCountMap.remove(alertType);
+        lastAlertTimeMap.put(alertType, now);
+        if (suppressed != null && suppressed > 0) {
+            log.warn("Slack 알림 {}건 억제됨 - {}", suppressed, alertType);
+        }
+        return false;
     }
 
 }
