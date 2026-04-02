@@ -28,8 +28,7 @@ public class OrderController {
     public ResponseEntity<OrderCreateResponse> createOrder(@RequestBody @Valid OrderRequest request) {
         Order order = orderService.createOrder(
             request.memberId(),
-            request.productId(),
-            request.quantity(),
+            request.items(),
             request.currency(),
             request.scenario().name()
         );

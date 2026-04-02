@@ -1,6 +1,7 @@
 package eastmeet.ordertrace.order.service;
 
 import eastmeet.ordertrace.global.domain.Currency;
+import eastmeet.ordertrace.order.api.dto.OrderItemRequest;
 import eastmeet.ordertrace.order.domain.Order;
 import eastmeet.ordertrace.order.domain.OrderItem;
 import eastmeet.ordertrace.order.event.OrderCancelledEvent;
@@ -9,6 +10,10 @@ import eastmeet.ordertrace.order.repository.OrderRepository;
 import eastmeet.ordertrace.product.domain.Product;
 import eastmeet.ordertrace.product.service.ProductService;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -26,21 +31,33 @@ public class OrderService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public Order createOrder(Long memberId, Long productId, Integer quantity, Currency currency, String scenario) {
-        Product product = productService.findById(productId);
-        product.decreaseStock(quantity);
+    public Order createOrder(Long memberId, List<OrderItemRequest> items, Currency currency, String scenario) {
+        List<Long> productIds = items.stream()
+            .map(OrderItemRequest::productId)
+            .toList();
+
+        Map<Long, Product> productMap = productService.findAllByIds(productIds).stream()
+            .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        if (productMap.size() != productIds.size()) {
+            throw new EntityNotFoundException("존재하지 않는 상품이 포함되어 있습니다.");
+        }
 
         Order order = new Order(memberId, currency);
 
-        OrderItem orderItem = new OrderItem(
-            product.getId(),
-            quantity,
-            product.getPrice()
-        );
+        items.forEach(item -> {
+            Product product = productMap.get(item.productId());
+            product.decreaseStock(item.quantity());
 
-        order.addOrderItem(orderItem);
+            OrderItem orderItem = new OrderItem(
+                product.getId(),
+                item.quantity(),
+                product.getPrice()
+            );
+            order.addOrderItem(orderItem);
+        });
+
         orderRepository.save(order);
-
         order.markPaymentPending();
 
         eventPublisher.publishEvent(new OrderCreatedEvent(
@@ -50,7 +67,7 @@ public class OrderService {
             scenario
         ));
 
-        log.info("주문 생성 및 결제 요청 - orderId: {}", order.getId());
+        log.info("주문 생성 및 결제 요청 - orderId: {}, 상품 수: {}", order.getId(), items.size());
         return order;
     }
 
@@ -94,10 +111,19 @@ public class OrderService {
     @Transactional
     public void restoreStock(Long orderId) {
         Order order = getOrderWithItemsByOrderId(orderId);
+
+        List<Long> productIds = order.getOrderItems().stream()
+            .map(OrderItem::getProductId)
+            .toList();
+
+        Map<Long, Product> productMap = productService.findAllByIds(productIds).stream()
+            .collect(Collectors.toMap(Product::getId, Function.identity()));
+
         order.getOrderItems().forEach(item -> {
-            Product product = productService.findById(item.getProductId());
+            Product product = productMap.get(item.getProductId());
             product.increaseStock(item.getQuantity());
         });
+
         log.info("재고 복원 완료 - orderId: {}", orderId);
     }
 
