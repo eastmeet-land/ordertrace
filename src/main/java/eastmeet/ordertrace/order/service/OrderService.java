@@ -28,6 +28,7 @@ public class OrderService {
     @Transactional
     public Order createOrder(Long memberId, Long productId, Integer quantity, Currency currency, String scenario) {
         Product product = productService.findById(productId);
+        product.decreaseStock(quantity);
 
         Order order = new Order(memberId, currency);
 
@@ -88,6 +89,16 @@ public class OrderService {
         Order order = getOrderById(id);
         order.markFailed();
         log.info("주문 실패 - orderId: {}", id);
+    }
+
+    @Transactional
+    public void restoreStock(Long orderId) {
+        Order order = getOrderWithItemsByOrderId(orderId);
+        order.getOrderItems().forEach(item -> {
+            Product product = productService.findById(item.getProductId());
+            product.increaseStock(item.getQuantity());
+        });
+        log.info("재고 복원 완료 - orderId: {}", orderId);
     }
 
 }
