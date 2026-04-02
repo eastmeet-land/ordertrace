@@ -1,9 +1,13 @@
 package eastmeet.ordertrace.order.service;
 
+import static eastmeet.ordertrace.global.config.KafkaConfig.ORDER_EVENTS_TOPIC;
+
 import eastmeet.ordertrace.global.domain.Currency;
+import eastmeet.ordertrace.global.event.EventPublisher;
 import eastmeet.ordertrace.order.api.dto.OrderItemRequest;
 import eastmeet.ordertrace.order.domain.Order;
 import eastmeet.ordertrace.order.domain.OrderItem;
+import eastmeet.ordertrace.order.domain.OrderStatus;
 import eastmeet.ordertrace.order.event.OrderCancelledEvent;
 import eastmeet.ordertrace.order.event.OrderCreatedEvent;
 import eastmeet.ordertrace.order.repository.OrderRepository;
@@ -16,9 +20,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Service
@@ -28,7 +33,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final ProductService productService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EventPublisher eventPublisher;
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> items, Currency currency, String scenario) {
@@ -60,12 +65,22 @@ public class OrderService {
         orderRepository.save(order);
         order.markPaymentPending();
 
-        eventPublisher.publishEvent(new OrderCreatedEvent(
-            order.getId(),
-            order.getTotalAmount(),
-            order.getCurrency(),
-            scenario
-        ));
+        // 트랜잭션 커밋 후 Kafka 이벤트 발행
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eventPublisher.publish(
+                    ORDER_EVENTS_TOPIC,
+                    String.valueOf(order.getId()),
+                    new OrderCreatedEvent(
+                        order.getId(),
+                        order.getTotalAmount(),
+                        order.getCurrency(),
+                        scenario
+                    )
+                );
+            }
+        });
 
         log.info("주문 생성 및 결제 요청 - orderId: {}, 상품 수: {}", order.getId(), items.size());
         return order;
@@ -90,22 +105,42 @@ public class OrderService {
         Order order = getOrderById(id);
         order.cancel();
 
-        eventPublisher.publishEvent(new OrderCancelledEvent(order.getId()));
+        // 트랜잭션 커밋 후 Kafka 이벤트 발행
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                eventPublisher.publish(
+                    ORDER_EVENTS_TOPIC,
+                    String.valueOf(order.getId()),
+                    new OrderCancelledEvent(order.getId())
+                );
+            }
+        });
+
         log.info("주문 취소 - orderId: {}", id);
     }
 
     @Transactional
     public void confirmOrder(Long id) {
         Order order = getOrderById(id);
+        if (order.getStatus() == OrderStatus.CONFIRMED) {
+            log.info("이미 확정된 주문 - orderId: {}", id);
+            return;
+        }
         order.markConfirmed();
         log.info("주문 확정 - orderId: {}", id);
     }
 
     @Transactional
-    public void failOrder(Long id) {
+    public void failOrderAndRestoreStock(Long id) {
         Order order = getOrderById(id);
+        if (order.getStatus() == OrderStatus.FAILED) {
+            log.info("이미 실패 처리된 주문 - orderId: {}", id);
+            return;
+        }
         order.markFailed();
         log.info("주문 실패 - orderId: {}", id);
+        this.restoreStock(id);
     }
 
     @Transactional
