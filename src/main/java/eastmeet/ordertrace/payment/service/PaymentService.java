@@ -45,7 +45,7 @@ public class PaymentService {
         // 2. 외부 연동 (트랜잭션 없음 - DB 커넥션 미점유)
         PaymentResult result = paymentProcessor.process(new PaymentRequest(orderId, amount, currency, scenario));
 
-        // 3. 결제 결과 반영 (트랜잭션 2)
+        // 3. 결제 결과 반영 (트랜잭션 2 - DB 상태만 변경)
         transactionTemplate.executeWithoutResult(status -> {
             Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(
@@ -57,11 +57,6 @@ public class PaymentService {
                 log.info("결제 승인 완료 - orderId: {}, paymentId: {}", orderId, payment.getId());
             } else {
                 payment.markRejected(result.failureReason());
-                eventPublisher.publish(
-                    PAYMENT_EVENTS_TOPIC,
-                    String.valueOf(orderId),
-                    new PaymentFailedEvent(orderId, payment.getId(), result.failureReason())
-                );
                 log.error("결제 거절 - orderId: {}, reason: {}", orderId, result.failureReason());
             }
         });
@@ -83,7 +78,7 @@ public class PaymentService {
                 "🚨",
                 "결제 실패 알림",
                 String.format("*주문 ID:* %d\n*실패 사유:* %s", orderId, result.failureReason()),
-                String.valueOf(orderId)
+                "orderId: " + orderId
             ));
         }
     }

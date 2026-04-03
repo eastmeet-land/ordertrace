@@ -65,7 +65,7 @@ public class GlobalExceptionHandler {
             "서버 오류 발생",
             String.format("*예외:* %s\n*메시지:* %s\n*요청 URI:* %s",
                 e.getClass().getSimpleName(), e.getMessage(), request.getRequestURI()),
-            "ERROR"
+            "예상하지 못한 서버 오류"
         ));
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."));

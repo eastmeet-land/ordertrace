@@ -19,7 +19,7 @@ public class SlackAlertService {
 
     private static final String KIBANA_DISCOVER_PATH = "/app/discover#/";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final long THROTTLE_MILLIS = 60_000; // 같은 타입 알림 1분 간격
+    private static final long THROTTLE_MILLIS = 60_000;
 
     private final RestClient restClient;
     private final String webhookUrl;
@@ -45,17 +45,22 @@ public class SlackAlertService {
             return;
         }
 
-        if (isThrottled(alert.title())) {
+        ThrottleResult throttleResult = checkThrottle(alert.title());
+        if (throttleResult.throttled()) {
             log.info("Slack 알림 throttled - {}", alert.title());
             return;
         }
+
+        String suppressedInfo = throttleResult.suppressedCount() > 0
+            ? String.format("\n⚠️ _이전 1분간 동일 알림 %d건 억제됨_", throttleResult.suppressedCount())
+            : "";
 
         String message = String.format("""
             %s *%s*
             ─────────────────
             %s
             *발생 시각:* %s
-            *스레드:* %s
+            *스레드:* %s%s
             ─────────────────
             <%s|📊 Kibana에서 확인>""",
             alert.emoji(),
@@ -63,9 +68,28 @@ public class SlackAlertService {
             alert.body(),
             LocalDateTime.now().format(FORMATTER),
             Thread.currentThread().getName(),
+            suppressedInfo,
             buildKibanaLink(alert.kibanaKeyword()));
 
         sendToSlack(message);
+    }
+
+    private record ThrottleResult(boolean throttled, int suppressedCount) {}
+
+    private ThrottleResult checkThrottle(String alertType) {
+        long now = System.currentTimeMillis();
+        Long lastTime = lastAlertTimeMap.get(alertType);
+        if (lastTime != null && (now - lastTime) < THROTTLE_MILLIS) {
+            throttledCountMap.merge(alertType, 1, Integer::sum);
+            return new ThrottleResult(true, 0);
+        }
+        Integer suppressed = throttledCountMap.remove(alertType);
+        lastAlertTimeMap.put(alertType, now);
+        int count = suppressed != null ? suppressed : 0;
+        if (count > 0) {
+            log.warn("Slack 알림 {}건 억제됨 - {}", count, alertType);
+        }
+        return new ThrottleResult(false, count);
     }
 
     private void sendToSlack(String message) {
@@ -85,8 +109,9 @@ public class SlackAlertService {
     }
 
     private String buildKibanaLink(String keyword) {
+        String escaped = keyword.replace(":", "\\:");
         return kibanaBaseUrl + KIBANA_DISCOVER_PATH
-            + "?_a=(query:(language:kuery,query:'" + keyword + "'))";
+            + "?_a=(query:(language:kuery,query:'message:*" + escaped + "*'))";
     }
 
     private String toPayload(String message) {
@@ -100,20 +125,4 @@ public class SlackAlertService {
             return "{}";
         }
     }
-
-    private boolean isThrottled(String alertType) {
-        long now = System.currentTimeMillis();
-        Long lastTime = lastAlertTimeMap.get(alertType);
-        if (lastTime != null && (now - lastTime) < THROTTLE_MILLIS) {
-            throttledCountMap.merge(alertType, 1, Integer::sum);
-            return true;
-        }
-        Integer suppressed = throttledCountMap.remove(alertType);
-        lastAlertTimeMap.put(alertType, now);
-        if (suppressed != null && suppressed > 0) {
-            log.warn("Slack 알림 {}건 억제됨 - {}", suppressed, alertType);
-        }
-        return false;
-    }
-
 }
