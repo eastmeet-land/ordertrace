@@ -148,7 +148,8 @@ class OrderTest {
             assertThatThrownBy(order::markConfirmed)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("결제 대기")
-                .hasMessageContaining("주문 확정");
+                .hasMessageContaining("주문 확정")
+                .hasMessageContaining("주문 생성");
         }
 
         @Test
@@ -159,7 +160,8 @@ class OrderTest {
             assertThatThrownBy(order::markFailed)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("결제 대기")
-                .hasMessageContaining("주문 실패");
+                .hasMessageContaining("주문 실패")
+                .hasMessageContaining("주문 생성");
         }
 
         @Test
@@ -170,7 +172,8 @@ class OrderTest {
             assertThatThrownBy(order::cancel)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("주문 확정")
-                .hasMessageContaining("주문 취소");
+                .hasMessageContaining("주문 취소")
+                .hasMessageContaining("주문 생성");
         }
 
         @Test
@@ -181,7 +184,9 @@ class OrderTest {
             order.markConfirmed();
 
             assertThatThrownBy(order::markConfirmed)
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("결제 대기")
+                .hasMessageContaining("주문 확정");
         }
 
         @Test
@@ -192,7 +197,10 @@ class OrderTest {
             order.markFailed();
 
             assertThatThrownBy(order::markConfirmed)
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("결제 대기")
+                .hasMessageContaining("주문 확정")
+                .hasMessageContaining("주문 실패");
         }
 
         @Test
@@ -203,7 +211,10 @@ class OrderTest {
             order.markFailed();
 
             assertThatThrownBy(order::cancel)
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("주문 확정")
+                .hasMessageContaining("주문 취소")
+                .hasMessageContaining("주문 실패");
         }
 
         @Test
@@ -214,10 +225,18 @@ class OrderTest {
             order.markConfirmed();
             order.cancel();
 
-            assertThatThrownBy(order::markPaymentPending).isInstanceOf(IllegalStateException.class);
-            assertThatThrownBy(order::markConfirmed).isInstanceOf(IllegalStateException.class);
-            assertThatThrownBy(order::markFailed).isInstanceOf(IllegalStateException.class);
-            assertThatThrownBy(order::cancel).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(order::markPaymentPending)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("주문 취소");
+            assertThatThrownBy(order::markConfirmed)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("주문 취소");
+            assertThatThrownBy(order::markFailed)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("주문 취소");
+            assertThatThrownBy(order::cancel)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("주문 취소");
         }
     }
 }

@@ -115,7 +115,10 @@ class PaymentTest {
             Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
 
             assertThatThrownBy(payment::markApproved)
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("결제 처리 중")
+                .hasMessageContaining("결제 승인")
+                .hasMessageContaining("결제요청");
         }
 
         @Test
@@ -124,7 +127,10 @@ class PaymentTest {
             Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
 
             assertThatThrownBy(() -> payment.markRejected("사유"))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("결제 처리 중")
+                .hasMessageContaining("결제 거절")
+                .hasMessageContaining("결제요청");
         }
 
         @Test
@@ -135,7 +141,9 @@ class PaymentTest {
             payment.markApproved();
 
             assertThatThrownBy(payment::markApproved)
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("결제 처리 중")
+                .hasMessageContaining("결제 승인");
         }
 
         @Test
@@ -146,7 +154,10 @@ class PaymentTest {
             payment.markRejected("사유");
 
             assertThatThrownBy(payment::markRefunded)
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("결제 승인")
+                .hasMessageContaining("환불")
+                .hasMessageContaining("결제 거절");
         }
 
         @Test
@@ -157,10 +168,18 @@ class PaymentTest {
             payment.markApproved();
             payment.markRefunded();
 
-            assertThatThrownBy(payment::markProcessing).isInstanceOf(IllegalStateException.class);
-            assertThatThrownBy(payment::markApproved).isInstanceOf(IllegalStateException.class);
-            assertThatThrownBy(() -> payment.markRejected("사유")).isInstanceOf(IllegalStateException.class);
-            assertThatThrownBy(payment::markRefunded).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(payment::markProcessing)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("환불 완료");
+            assertThatThrownBy(payment::markApproved)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("환불 완료");
+            assertThatThrownBy(() -> payment.markRejected("사유"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("환불 완료");
+            assertThatThrownBy(payment::markRefunded)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("환불 완료");
         }
     }
 }
