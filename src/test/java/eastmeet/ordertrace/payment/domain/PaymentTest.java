@@ -12,6 +12,27 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PaymentTest {
 
+    private static final Long DEFAULT_ORDER_ID = 1L;
+    private static final BigDecimal DEFAULT_AMOUNT = BigDecimal.valueOf(10_000);
+    private static final Currency DEFAULT_CURRENCY = Currency.KRW;
+    private static final String DEFAULT_FAILURE_REASON = "잔액 부족";
+
+    private Payment createPayment() {
+        return new Payment(DEFAULT_ORDER_ID, DEFAULT_AMOUNT, DEFAULT_CURRENCY);
+    }
+
+    private Payment createPaymentWithStatus(PaymentStatus targetStatus) {
+        Payment payment = createPayment();
+        switch (targetStatus) {
+            case PROCESSING -> payment.markProcessing();
+            case APPROVED -> { payment.markProcessing(); payment.markApproved(); }
+            case REJECTED -> { payment.markProcessing(); payment.markRejected(DEFAULT_FAILURE_REASON); }
+            case REFUNDED -> { payment.markProcessing(); payment.markApproved(); payment.markRefunded(); }
+            default -> {} // REQUESTED
+        }
+        return payment;
+    }
+
     @Nested
     @DisplayName("결제 생성")
     class Create {
@@ -19,11 +40,11 @@ class PaymentTest {
         @Test
         @DisplayName("정상적으로 결제를 생성한다")
         void success() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
+            Payment payment = createPayment();
 
-            assertThat(payment.getOrderId()).isEqualTo(1L);
-            assertThat(payment.getAmount()).isEqualByComparingTo(BigDecimal.valueOf(10000));
-            assertThat(payment.getCurrency()).isEqualTo(Currency.KRW);
+            assertThat(payment.getOrderId()).isEqualTo(DEFAULT_ORDER_ID);
+            assertThat(payment.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
+            assertThat(payment.getCurrency()).isEqualTo(DEFAULT_CURRENCY);
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REQUESTED);
             assertThat(payment.getRequestedAt()).isNotNull();
         }
@@ -31,7 +52,7 @@ class PaymentTest {
         @Test
         @DisplayName("주문 ID가 null이면 예외가 발생한다")
         void failWithNullOrderId() {
-            assertThatThrownBy(() -> new Payment(null, BigDecimal.valueOf(10000), Currency.KRW))
+            assertThatThrownBy(() -> new Payment(null, DEFAULT_AMOUNT, DEFAULT_CURRENCY))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("주문 ID는 필수");
         }
@@ -39,7 +60,7 @@ class PaymentTest {
         @Test
         @DisplayName("금액이 0이면 예외가 발생한다")
         void failWithZeroAmount() {
-            assertThatThrownBy(() -> new Payment(1L, BigDecimal.ZERO, Currency.KRW))
+            assertThatThrownBy(() -> new Payment(DEFAULT_ORDER_ID, BigDecimal.ZERO, DEFAULT_CURRENCY))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("결제 금액은 0보다 커야");
         }
@@ -47,7 +68,7 @@ class PaymentTest {
         @Test
         @DisplayName("금액이 음수이면 예외가 발생한다")
         void failWithNegativeAmount() {
-            assertThatThrownBy(() -> new Payment(1L, BigDecimal.valueOf(-1), Currency.KRW))
+            assertThatThrownBy(() -> new Payment(DEFAULT_ORDER_ID, BigDecimal.valueOf(-1), DEFAULT_CURRENCY))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("결제 금액은 0보다 커야");
         }
@@ -60,7 +81,7 @@ class PaymentTest {
         @Test
         @DisplayName("REQUESTED → PROCESSING")
         void requestedToProcessing() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
+            Payment payment = createPayment();
 
             payment.markProcessing();
 
@@ -70,8 +91,7 @@ class PaymentTest {
         @Test
         @DisplayName("PROCESSING → APPROVED")
         void processingToApproved() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
-            payment.markProcessing();
+            Payment payment = createPaymentWithStatus(PaymentStatus.PROCESSING);
 
             payment.markApproved();
 
@@ -82,22 +102,19 @@ class PaymentTest {
         @Test
         @DisplayName("PROCESSING → REJECTED")
         void processingToRejected() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
-            payment.markProcessing();
+            Payment payment = createPaymentWithStatus(PaymentStatus.PROCESSING);
 
-            payment.markRejected("잔액 부족");
+            payment.markRejected(DEFAULT_FAILURE_REASON);
 
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REJECTED);
-            assertThat(payment.getFailureReason()).isEqualTo("잔액 부족");
+            assertThat(payment.getFailureReason()).isEqualTo(DEFAULT_FAILURE_REASON);
             assertThat(payment.getCompletedAt()).isNotNull();
         }
 
         @Test
         @DisplayName("APPROVED → REFUNDED")
         void approvedToRefunded() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
-            payment.markProcessing();
-            payment.markApproved();
+            Payment payment = createPaymentWithStatus(PaymentStatus.APPROVED);
 
             payment.markRefunded();
 
@@ -112,7 +129,7 @@ class PaymentTest {
         @Test
         @DisplayName("REQUESTED 상태에서 승인은 불가능하다")
         void cannotApproveFromRequested() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
+            Payment payment = createPayment();
 
             assertThatThrownBy(payment::markApproved)
                 .isInstanceOf(IllegalStateException.class)
@@ -124,9 +141,9 @@ class PaymentTest {
         @Test
         @DisplayName("REQUESTED 상태에서 거절은 불가능하다")
         void cannotRejectFromRequested() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
+            Payment payment = createPayment();
 
-            assertThatThrownBy(() -> payment.markRejected("사유"))
+            assertThatThrownBy(() -> payment.markRejected(DEFAULT_FAILURE_REASON))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("결제 처리 중")
                 .hasMessageContaining("결제 거절")
@@ -136,9 +153,7 @@ class PaymentTest {
         @Test
         @DisplayName("APPROVED 상태에서 다시 승인은 불가능하다")
         void cannotApproveFromApproved() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
-            payment.markProcessing();
-            payment.markApproved();
+            Payment payment = createPaymentWithStatus(PaymentStatus.APPROVED);
 
             assertThatThrownBy(payment::markApproved)
                 .isInstanceOf(IllegalStateException.class)
@@ -149,9 +164,7 @@ class PaymentTest {
         @Test
         @DisplayName("REJECTED 상태에서 환불은 불가능하다")
         void cannotRefundFromRejected() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
-            payment.markProcessing();
-            payment.markRejected("사유");
+            Payment payment = createPaymentWithStatus(PaymentStatus.REJECTED);
 
             assertThatThrownBy(payment::markRefunded)
                 .isInstanceOf(IllegalStateException.class)
@@ -163,10 +176,7 @@ class PaymentTest {
         @Test
         @DisplayName("REFUNDED 상태에서 어떤 전이도 불가능하다")
         void cannotTransitionFromRefunded() {
-            Payment payment = new Payment(1L, BigDecimal.valueOf(10000), Currency.KRW);
-            payment.markProcessing();
-            payment.markApproved();
-            payment.markRefunded();
+            Payment payment = createPaymentWithStatus(PaymentStatus.REFUNDED);
 
             assertThatThrownBy(payment::markProcessing)
                 .isInstanceOf(IllegalStateException.class)
@@ -174,7 +184,7 @@ class PaymentTest {
             assertThatThrownBy(payment::markApproved)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("환불 완료");
-            assertThatThrownBy(() -> payment.markRejected("사유"))
+            assertThatThrownBy(() -> payment.markRejected(DEFAULT_FAILURE_REASON))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("환불 완료");
             assertThatThrownBy(payment::markRefunded)

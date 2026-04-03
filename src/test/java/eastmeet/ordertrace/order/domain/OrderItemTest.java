@@ -11,6 +11,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OrderItemTest {
 
+    private static final Long DEFAULT_PRODUCT_ID = 1L;
+    private static final int DEFAULT_QUANTITY = 3;
+    private static final BigDecimal DEFAULT_UNIT_PRICE = BigDecimal.valueOf(10_000);
+
+    private OrderItem createOrderItem() {
+        return new OrderItem(DEFAULT_PRODUCT_ID, DEFAULT_QUANTITY, DEFAULT_UNIT_PRICE);
+    }
+
     @Nested
     @DisplayName("주문 상품 생성")
     class Create {
@@ -18,26 +26,31 @@ class OrderItemTest {
         @Test
         @DisplayName("정상적으로 주문 상품을 생성한다")
         void success() {
-            OrderItem item = new OrderItem(1L, 3, BigDecimal.valueOf(10000));
+            OrderItem item = createOrderItem();
 
-            assertThat(item.getProductId()).isEqualTo(1L);
-            assertThat(item.getQuantity()).isEqualTo(3);
-            assertThat(item.getUnitPrice()).isEqualByComparingTo(BigDecimal.valueOf(10000));
-            assertThat(item.getSubtotal()).isEqualByComparingTo(BigDecimal.valueOf(30000));
+            assertThat(item.getProductId()).isEqualTo(DEFAULT_PRODUCT_ID);
+            assertThat(item.getQuantity()).isEqualTo(DEFAULT_QUANTITY);
+            assertThat(item.getUnitPrice()).isEqualByComparingTo(DEFAULT_UNIT_PRICE);
+            assertThat(item.getSubtotal()).isEqualByComparingTo(
+                DEFAULT_UNIT_PRICE.multiply(BigDecimal.valueOf(DEFAULT_QUANTITY)));
         }
 
         @Test
         @DisplayName("소계는 단가 × 수량으로 계산된다")
         void subtotalCalculation() {
-            OrderItem item = new OrderItem(1L, 5, BigDecimal.valueOf(2990000));
+            BigDecimal unitPrice = BigDecimal.valueOf(2_990_000);
+            int quantity = 5;
 
-            assertThat(item.getSubtotal()).isEqualByComparingTo(BigDecimal.valueOf(14950000));
+            OrderItem item = new OrderItem(DEFAULT_PRODUCT_ID, quantity, unitPrice);
+
+            assertThat(item.getSubtotal()).isEqualByComparingTo(
+                unitPrice.multiply(BigDecimal.valueOf(quantity)));
         }
 
         @Test
         @DisplayName("상품 ID가 null이면 예외가 발생한다")
         void failWithNullProductId() {
-            assertThatThrownBy(() -> new OrderItem(null, 1, BigDecimal.valueOf(10000)))
+            assertThatThrownBy(() -> new OrderItem(null, DEFAULT_QUANTITY, DEFAULT_UNIT_PRICE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("상품 ID는 필수");
         }
@@ -45,7 +58,7 @@ class OrderItemTest {
         @Test
         @DisplayName("수량이 null이면 예외가 발생한다")
         void failWithNullQuantity() {
-            assertThatThrownBy(() -> new OrderItem(1L, null, BigDecimal.valueOf(10000)))
+            assertThatThrownBy(() -> new OrderItem(DEFAULT_PRODUCT_ID, null, DEFAULT_UNIT_PRICE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("수량은 필수");
         }
@@ -53,7 +66,7 @@ class OrderItemTest {
         @Test
         @DisplayName("수량이 0이면 예외가 발생한다")
         void failWithZeroQuantity() {
-            assertThatThrownBy(() -> new OrderItem(1L, 0, BigDecimal.valueOf(10000)))
+            assertThatThrownBy(() -> new OrderItem(DEFAULT_PRODUCT_ID, 0, DEFAULT_UNIT_PRICE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("수량은 1 이상");
         }
@@ -61,7 +74,7 @@ class OrderItemTest {
         @Test
         @DisplayName("수량이 음수이면 예외가 발생한다")
         void failWithNegativeQuantity() {
-            assertThatThrownBy(() -> new OrderItem(1L, -1, BigDecimal.valueOf(10000)))
+            assertThatThrownBy(() -> new OrderItem(DEFAULT_PRODUCT_ID, -1, DEFAULT_UNIT_PRICE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("수량은 1 이상");
         }
@@ -69,7 +82,7 @@ class OrderItemTest {
         @Test
         @DisplayName("단가가 null이면 예외가 발생한다")
         void failWithNullUnitPrice() {
-            assertThatThrownBy(() -> new OrderItem(1L, 1, null))
+            assertThatThrownBy(() -> new OrderItem(DEFAULT_PRODUCT_ID, DEFAULT_QUANTITY, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("단가는 필수");
         }
@@ -77,7 +90,7 @@ class OrderItemTest {
         @Test
         @DisplayName("단가가 음수이면 예외가 발생한다")
         void failWithNegativeUnitPrice() {
-            assertThatThrownBy(() -> new OrderItem(1L, 1, BigDecimal.valueOf(-1)))
+            assertThatThrownBy(() -> new OrderItem(DEFAULT_PRODUCT_ID, DEFAULT_QUANTITY, BigDecimal.valueOf(-1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("단가는 0 이상");
         }
@@ -85,7 +98,7 @@ class OrderItemTest {
         @Test
         @DisplayName("단가가 0이면 정상 생성된다 (무료 상품)")
         void successWithZeroUnitPrice() {
-            OrderItem item = new OrderItem(1L, 1, BigDecimal.ZERO);
+            OrderItem item = new OrderItem(DEFAULT_PRODUCT_ID, DEFAULT_QUANTITY, BigDecimal.ZERO);
 
             assertThat(item.getUnitPrice()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(item.getSubtotal()).isEqualByComparingTo(BigDecimal.ZERO);

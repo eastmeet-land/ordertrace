@@ -12,6 +12,36 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OrderTest {
 
+    private static final Long DEFAULT_MEMBER_ID = 1L;
+    private static final Currency DEFAULT_CURRENCY = Currency.KRW;
+    private static final Long DEFAULT_PRODUCT_ID = 1L;
+    private static final int DEFAULT_QUANTITY = 2;
+    private static final BigDecimal DEFAULT_UNIT_PRICE = BigDecimal.valueOf(10_000);
+
+    private Order createOrder() {
+        return new Order(DEFAULT_MEMBER_ID, DEFAULT_CURRENCY);
+    }
+
+    private OrderItem createOrderItem() {
+        return new OrderItem(DEFAULT_PRODUCT_ID, DEFAULT_QUANTITY, DEFAULT_UNIT_PRICE);
+    }
+
+    private OrderItem createOrderItem(Long productId, int quantity, BigDecimal unitPrice) {
+        return new OrderItem(productId, quantity, unitPrice);
+    }
+
+    private Order createOrderWithStatus(OrderStatus targetStatus) {
+        Order order = createOrder();
+        switch (targetStatus) {
+            case PAYMENT_PENDING -> order.markPaymentPending();
+            case CONFIRMED -> { order.markPaymentPending(); order.markConfirmed(); }
+            case FAILED -> { order.markPaymentPending(); order.markFailed(); }
+            case CANCELLED -> { order.markPaymentPending(); order.markConfirmed(); order.cancel(); }
+            default -> {} // CREATED
+        }
+        return order;
+    }
+
     @Nested
     @DisplayName("주문 생성")
     class Create {
@@ -19,10 +49,10 @@ class OrderTest {
         @Test
         @DisplayName("정상적으로 주문을 생성한다")
         void success() {
-            Order order = new Order(1L, Currency.KRW);
+            Order order = createOrder();
 
-            assertThat(order.getMemberId()).isEqualTo(1L);
-            assertThat(order.getCurrency()).isEqualTo(Currency.KRW);
+            assertThat(order.getMemberId()).isEqualTo(DEFAULT_MEMBER_ID);
+            assertThat(order.getCurrency()).isEqualTo(DEFAULT_CURRENCY);
             assertThat(order.getStatus()).isEqualTo(OrderStatus.CREATED);
             assertThat(order.getTotalAmount()).isEqualByComparingTo(BigDecimal.ZERO);
             assertThat(order.getOrderItems()).isEmpty();
@@ -31,7 +61,7 @@ class OrderTest {
         @Test
         @DisplayName("회원 ID가 null이면 예외가 발생한다")
         void failWithNullMemberId() {
-            assertThatThrownBy(() -> new Order(null, Currency.KRW))
+            assertThatThrownBy(() -> new Order(null, DEFAULT_CURRENCY))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("회원 ID는 필수");
         }
@@ -39,7 +69,7 @@ class OrderTest {
         @Test
         @DisplayName("통화가 null이면 예외가 발생한다")
         void failWithNullCurrency() {
-            assertThatThrownBy(() -> new Order(1L, null))
+            assertThatThrownBy(() -> new Order(DEFAULT_MEMBER_ID, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("통화는 필수");
         }
@@ -52,38 +82,41 @@ class OrderTest {
         @Test
         @DisplayName("주문 상품을 추가하면 총 금액이 계산된다")
         void calculateTotalAmount() {
-            Order order = new Order(1L, Currency.KRW);
-            OrderItem item = new OrderItem(1L, 2, BigDecimal.valueOf(10000));
+            Order order = createOrder();
+            OrderItem item = createOrderItem();
 
             order.addOrderItem(item);
 
             assertThat(order.getOrderItems()).hasSize(1);
-            assertThat(order.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(20000));
+            assertThat(order.getTotalAmount()).isEqualByComparingTo(
+                DEFAULT_UNIT_PRICE.multiply(BigDecimal.valueOf(DEFAULT_QUANTITY)));
         }
 
         @Test
         @DisplayName("여러 상품을 추가하면 총 금액이 합산된다")
         void calculateTotalAmountWithMultipleItems() {
-            Order order = new Order(1L, Currency.KRW);
-            OrderItem item1 = new OrderItem(1L, 2, BigDecimal.valueOf(10000));
-            OrderItem item2 = new OrderItem(2L, 1, BigDecimal.valueOf(5000));
+            Order order = createOrder();
+            BigDecimal secondItemPrice = BigDecimal.valueOf(5_000);
+            int secondItemQuantity = 1;
 
-            order.addOrderItem(item1);
-            order.addOrderItem(item2);
+            order.addOrderItem(createOrderItem());
+            order.addOrderItem(createOrderItem(2L, secondItemQuantity, secondItemPrice));
+
+            BigDecimal expectedTotal = DEFAULT_UNIT_PRICE.multiply(BigDecimal.valueOf(DEFAULT_QUANTITY))
+                .add(secondItemPrice.multiply(BigDecimal.valueOf(secondItemQuantity)));
 
             assertThat(order.getOrderItems()).hasSize(2);
-            assertThat(order.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(25000));
+            assertThat(order.getTotalAmount()).isEqualByComparingTo(expectedTotal);
         }
 
         @Test
         @DisplayName("주문 상품 목록은 수정할 수 없다")
         void orderItemsAreUnmodifiable() {
-            Order order = new Order(1L, Currency.KRW);
-            order.addOrderItem(new OrderItem(1L, 1, BigDecimal.valueOf(10000)));
+            Order order = createOrder();
+            order.addOrderItem(createOrderItem());
 
-            assertThatThrownBy(() -> order.getOrderItems().add(
-                new OrderItem(2L, 1, BigDecimal.valueOf(5000))
-            )).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> order.getOrderItems().add(createOrderItem()))
+                .isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
@@ -94,7 +127,7 @@ class OrderTest {
         @Test
         @DisplayName("CREATED → PAYMENT_PENDING")
         void createdToPaymentPending() {
-            Order order = new Order(1L, Currency.KRW);
+            Order order = createOrder();
 
             order.markPaymentPending();
 
@@ -104,8 +137,7 @@ class OrderTest {
         @Test
         @DisplayName("PAYMENT_PENDING → CONFIRMED")
         void paymentPendingToConfirmed() {
-            Order order = new Order(1L, Currency.KRW);
-            order.markPaymentPending();
+            Order order = createOrderWithStatus(OrderStatus.PAYMENT_PENDING);
 
             order.markConfirmed();
 
@@ -115,8 +147,7 @@ class OrderTest {
         @Test
         @DisplayName("PAYMENT_PENDING → FAILED")
         void paymentPendingToFailed() {
-            Order order = new Order(1L, Currency.KRW);
-            order.markPaymentPending();
+            Order order = createOrderWithStatus(OrderStatus.PAYMENT_PENDING);
 
             order.markFailed();
 
@@ -126,9 +157,7 @@ class OrderTest {
         @Test
         @DisplayName("CONFIRMED → CANCELLED")
         void confirmedToCancelled() {
-            Order order = new Order(1L, Currency.KRW);
-            order.markPaymentPending();
-            order.markConfirmed();
+            Order order = createOrderWithStatus(OrderStatus.CONFIRMED);
 
             order.cancel();
 
@@ -143,7 +172,7 @@ class OrderTest {
         @Test
         @DisplayName("CREATED 상태에서 주문 확정은 불가능하다")
         void cannotConfirmFromCreated() {
-            Order order = new Order(1L, Currency.KRW);
+            Order order = createOrder();
 
             assertThatThrownBy(order::markConfirmed)
                 .isInstanceOf(IllegalStateException.class)
@@ -155,7 +184,7 @@ class OrderTest {
         @Test
         @DisplayName("CREATED 상태에서 주문 실패는 불가능하다")
         void cannotFailFromCreated() {
-            Order order = new Order(1L, Currency.KRW);
+            Order order = createOrder();
 
             assertThatThrownBy(order::markFailed)
                 .isInstanceOf(IllegalStateException.class)
@@ -167,7 +196,7 @@ class OrderTest {
         @Test
         @DisplayName("CREATED 상태에서 주문 취소는 불가능하다")
         void cannotCancelFromCreated() {
-            Order order = new Order(1L, Currency.KRW);
+            Order order = createOrder();
 
             assertThatThrownBy(order::cancel)
                 .isInstanceOf(IllegalStateException.class)
@@ -179,9 +208,7 @@ class OrderTest {
         @Test
         @DisplayName("CONFIRMED 상태에서 다시 확정은 불가능하다")
         void cannotConfirmFromConfirmed() {
-            Order order = new Order(1L, Currency.KRW);
-            order.markPaymentPending();
-            order.markConfirmed();
+            Order order = createOrderWithStatus(OrderStatus.CONFIRMED);
 
             assertThatThrownBy(order::markConfirmed)
                 .isInstanceOf(IllegalStateException.class)
@@ -192,9 +219,7 @@ class OrderTest {
         @Test
         @DisplayName("FAILED 상태에서 주문 확정은 불가능하다")
         void cannotConfirmFromFailed() {
-            Order order = new Order(1L, Currency.KRW);
-            order.markPaymentPending();
-            order.markFailed();
+            Order order = createOrderWithStatus(OrderStatus.FAILED);
 
             assertThatThrownBy(order::markConfirmed)
                 .isInstanceOf(IllegalStateException.class)
@@ -206,9 +231,7 @@ class OrderTest {
         @Test
         @DisplayName("FAILED 상태에서 주문 취소는 불가능하다")
         void cannotCancelFromFailed() {
-            Order order = new Order(1L, Currency.KRW);
-            order.markPaymentPending();
-            order.markFailed();
+            Order order = createOrderWithStatus(OrderStatus.FAILED);
 
             assertThatThrownBy(order::cancel)
                 .isInstanceOf(IllegalStateException.class)
@@ -220,10 +243,7 @@ class OrderTest {
         @Test
         @DisplayName("CANCELLED 상태에서 어떤 전이도 불가능하다")
         void cannotTransitionFromCancelled() {
-            Order order = new Order(1L, Currency.KRW);
-            order.markPaymentPending();
-            order.markConfirmed();
-            order.cancel();
+            Order order = createOrderWithStatus(OrderStatus.CANCELLED);
 
             assertThatThrownBy(order::markPaymentPending)
                 .isInstanceOf(IllegalStateException.class)

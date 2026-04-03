@@ -11,6 +11,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ProductTest {
 
+    private static final String DEFAULT_NAME = "맥북 프로 14";
+    private static final String DEFAULT_DESCRIPTION = "Apple M3 Pro 칩";
+    private static final BigDecimal DEFAULT_PRICE = BigDecimal.valueOf(2_990_000);
+    private static final int DEFAULT_STOCK = 10;
+
+    private Product createProduct() {
+        return new Product(DEFAULT_NAME, DEFAULT_DESCRIPTION, DEFAULT_PRICE, DEFAULT_STOCK);
+    }
+
+    private Product createProductWithStock(int stock) {
+        return new Product(DEFAULT_NAME, DEFAULT_DESCRIPTION, DEFAULT_PRICE, stock);
+    }
+
     @Nested
     @DisplayName("재고 차감")
     class DecreaseStock {
@@ -18,17 +31,17 @@ class ProductTest {
         @Test
         @DisplayName("정상적으로 재고를 차감한다")
         void success() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 10);
+            Product product = createProduct();
 
             product.decreaseStock(3);
 
-            assertThat(product.getStockQuantity()).isEqualTo(7);
+            assertThat(product.getStockQuantity()).isEqualTo(DEFAULT_STOCK - 3);
         }
 
         @Test
         @DisplayName("재고를 전부 차감할 수 있다")
         void decreaseAllStock() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 5);
+            Product product = createProductWithStock(5);
 
             product.decreaseStock(5);
 
@@ -38,7 +51,7 @@ class ProductTest {
         @Test
         @DisplayName("재고보다 많이 차감하면 예외가 발생한다")
         void failWhenInsufficientStock() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 3);
+            Product product = createProductWithStock(3);
 
             assertThatThrownBy(() -> product.decreaseStock(5))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -48,7 +61,7 @@ class ProductTest {
         @Test
         @DisplayName("수량이 null이면 예외가 발생한다")
         void failWithNullQuantity() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 10);
+            Product product = createProduct();
 
             assertThatThrownBy(() -> product.decreaseStock(null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -58,7 +71,7 @@ class ProductTest {
         @Test
         @DisplayName("수량이 0이면 예외가 발생한다")
         void failWithZeroQuantity() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 10);
+            Product product = createProduct();
 
             assertThatThrownBy(() -> product.decreaseStock(0))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -73,7 +86,7 @@ class ProductTest {
         @Test
         @DisplayName("정상적으로 재고를 복원한다")
         void success() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 7);
+            Product product = createProductWithStock(7);
 
             product.increaseStock(3);
 
@@ -83,7 +96,7 @@ class ProductTest {
         @Test
         @DisplayName("수량이 null이면 예외가 발생한다")
         void failWithNullQuantity() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 10);
+            Product product = createProduct();
 
             assertThatThrownBy(() -> product.increaseStock(null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -93,7 +106,7 @@ class ProductTest {
         @Test
         @DisplayName("수량이 0이면 예외가 발생한다")
         void failWithZeroQuantity() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 10);
+            Product product = createProduct();
 
             assertThatThrownBy(() -> product.increaseStock(0))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -108,13 +121,13 @@ class ProductTest {
         @Test
         @DisplayName("차감 후 복원하면 원래 재고로 돌아간다")
         void restoreAfterDecrease() {
-            Product product = new Product("맥북", "설명", BigDecimal.valueOf(2990000), 10);
+            Product product = createProduct();
 
             product.decreaseStock(3);
-            assertThat(product.getStockQuantity()).isEqualTo(7);
+            assertThat(product.getStockQuantity()).isEqualTo(DEFAULT_STOCK - 3);
 
             product.increaseStock(3);
-            assertThat(product.getStockQuantity()).isEqualTo(10);
+            assertThat(product.getStockQuantity()).isEqualTo(DEFAULT_STOCK);
         }
     }
 }
