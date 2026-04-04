@@ -133,20 +133,15 @@ public class OrderService {
 
     @Transactional
     public void failOrderAndRestoreStock(Long id) {
-        Order order = getOrderById(id);
+        Order order = getOrderWithItemsByOrderId(id);
         if (order.getStatus() == OrderStatus.FAILED) {
             log.info("이미 실패 처리된 주문 - orderId: {}", id);
             return;
         }
         order.markFailed();
         log.info("주문 실패 - orderId: {}", id);
-        this.restoreStock(id);
-    }
 
-    @Transactional
-    public void restoreStock(Long orderId) {
-        Order order = getOrderWithItemsByOrderId(orderId);
-
+        // 재고 복원(restore Stock)
         List<Long> productIds = order.getOrderItems().stream()
             .map(OrderItem::getProductId)
             .toList();
@@ -158,8 +153,7 @@ public class OrderService {
             Product product = productMap.get(item.getProductId());
             product.increaseStock(item.getQuantity());
         });
-
-        log.info("재고 복원 완료 - orderId: {}", orderId);
+        log.info("재고 복원 완료 - orderId: {}", order.getId());
     }
 
 }
