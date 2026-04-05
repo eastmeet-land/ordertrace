@@ -16,6 +16,7 @@ import eastmeet.ordertrace.product.service.ProductService;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -37,15 +38,12 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> items, Currency currency, String scenario) {
-        List<Long> productIds = items.stream()
+        Set<Long> productIds = items.stream()
             .map(OrderItemRequest::productId)
-            .toList();
+            .collect(Collectors.toSet());
 
         Map<Long, Product> productMap = productService.getAllProductsByIdsForUpdate(productIds).stream()
-            .collect(
-                Collectors.toMap(Product::getId, Function.identity()
-                )
-            );
+            .collect(Collectors.toMap(Product::getId, Function.identity()));
 
         if (productMap.size() != productIds.size()) {
             throw new EntityNotFoundException("존재하지 않는 상품이 포함되어 있습니다.");
@@ -145,9 +143,9 @@ public class OrderService {
         log.info("주문 실패 - orderId: {}", id);
 
         // 재고 복원(restore Stock)
-        List<Long> productIds = order.getOrderItems().stream()
+        Set<Long> productIds = order.getOrderItems().stream()
             .map(OrderItem::getProductId)
-            .toList();
+            .collect(Collectors.toSet());
 
         Map<Long, Product> productMap = productService.getAllProductsByIdsForUpdate(productIds).stream()
             .collect(

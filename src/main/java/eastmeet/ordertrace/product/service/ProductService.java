@@ -3,6 +3,7 @@ package eastmeet.ordertrace.product.service;
 import eastmeet.ordertrace.product.domain.Product;
 import eastmeet.ordertrace.product.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +29,7 @@ public class ProductService {
             );
     }
 
-    public List<Product> getAllProductsByIdsForUpdate(List<Long> ids) {
+    public List<Product> getAllProductsByIdsForUpdate(Collection<?> ids) {
         return productRepository.findAllByIdForUpdate(ids);
     }
 

@@ -37,9 +37,15 @@ class StockConcurrencyTest {
     @Autowired
     TransactionTemplate transactionTemplate;
 
+    private Long testProductId;
+
     @AfterEach
     void cleanup() {
-        productRepository.deleteAll();
+        if (testProductId != null) {
+            transactionTemplate.executeWithoutResult(status ->
+                productRepository.deleteById(testProductId)
+            );
+        }
     }
 
     @Test
@@ -51,6 +57,7 @@ class StockConcurrencyTest {
             Product product = new Product("테스트 상품", "설명", BigDecimal.valueOf(1000), initialStock);
             return productRepository.save(product).getId();
         });
+        testProductId = productId;
 
         int threadCount = 10;
         try (ExecutorService executor = Executors.newFixedThreadPool(threadCount)) {
@@ -108,6 +115,7 @@ class StockConcurrencyTest {
             Product product = new Product("테스트 상품", "설명", BigDecimal.valueOf(1000), initialStock);
             return productRepository.save(product).getId();
         });
+        testProductId = productId;
 
         int threadCount = 10;
         try (ExecutorService executor = Executors.newFixedThreadPool(threadCount)) {
