@@ -3,6 +3,7 @@ package eastmeet.ordertrace.product.service;
 import eastmeet.ordertrace.product.domain.Product;
 import eastmeet.ordertrace.product.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,19 +18,19 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public List<Product> findAll() {
+    public List<Product> getAllProducts() {
         return productRepository.findAll();
     }
 
-    public List<Product> findAllByIds(List<Long> ids) {
-        return productRepository.findAllById(ids);
-    }
-
-    public Product findById(Long id) {
+    public Product getProductById(Long id) {
         return productRepository.findById(id)
             .orElseThrow(
                 () -> new EntityNotFoundException("상품을 찾을 수 없습니다. id: " + id)
             );
+    }
+
+    public List<Product> getAllProductsByIdsForUpdate(Collection<?> ids) {
+        return productRepository.findAllByIdForUpdate(ids);
     }
 
 }

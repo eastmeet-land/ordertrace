@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,6 +46,9 @@ public class Order extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "currency", nullable = false, comment = "통화")
     private Currency currency;
+
+    @Version
+    private Long version;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();

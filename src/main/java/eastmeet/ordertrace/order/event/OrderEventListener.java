@@ -8,6 +8,7 @@ import eastmeet.ordertrace.payment.event.PaymentApprovedEvent;
 import eastmeet.ordertrace.payment.event.PaymentFailedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.kafka.annotation.KafkaHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -23,13 +24,21 @@ public class OrderEventListener {
     @KafkaHandler
     public void handlePaymentApproved(PaymentApprovedEvent event) {
         log.info("결제 승인 이벤트 수신 - orderId: {}, thread: {}", event.orderId(), Thread.currentThread().getName());
-        orderService.confirmOrder(event.orderId());
+        try {
+            orderService.confirmOrder(event.orderId());
+        } catch (OptimisticLockingFailureException e) {
+            log.warn("주문 상태 변경 충돌 (이미 다른 스레드에서 처리됨) - orderId: {}", event.orderId());
+        }
     }
 
     @KafkaHandler
     public void handlePaymentFailed(PaymentFailedEvent event) {
         log.info("결제 실패 이벤트 수신 - orderId: {}, thread: {}", event.orderId(), Thread.currentThread().getName());
-        orderService.failOrderAndRestoreStock(event.orderId());
+        try {
+            orderService.failOrderAndRestoreStock(event.orderId());
+        } catch (OptimisticLockingFailureException e) {
+            log.warn("주문 상태 변경 충돌 (이미 다른 스레드에서 처리됨) - orderId: {}", event.orderId());
+        }
     }
 
 }
