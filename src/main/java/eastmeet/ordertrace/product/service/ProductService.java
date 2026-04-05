@@ -17,19 +17,19 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public List<Product> findAll() {
+    public List<Product> getAllProducts() {
         return productRepository.findAll();
     }
 
-    public List<Product> findAllByIds(List<Long> ids) {
-        return productRepository.findAllById(ids);
-    }
-
-    public Product findById(Long id) {
+    public Product getProductById(Long id) {
         return productRepository.findById(id)
             .orElseThrow(
                 () -> new EntityNotFoundException("상품을 찾을 수 없습니다. id: " + id)
             );
+    }
+
+    public List<Product> getAllProductsByIdsForUpdate(List<Long> ids) {
+        return productRepository.findAllByIdForUpdate(ids);
     }
 
 }

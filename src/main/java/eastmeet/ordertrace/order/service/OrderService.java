@@ -41,8 +41,11 @@ public class OrderService {
             .map(OrderItemRequest::productId)
             .toList();
 
-        Map<Long, Product> productMap = productService.findAllByIds(productIds).stream()
-            .collect(Collectors.toMap(Product::getId, Function.identity()));
+        Map<Long, Product> productMap = productService.getAllProductsByIdsForUpdate(productIds).stream()
+            .collect(
+                Collectors.toMap(Product::getId, Function.identity()
+                )
+            );
 
         if (productMap.size() != productIds.size()) {
             throw new EntityNotFoundException("존재하지 않는 상품이 포함되어 있습니다.");
@@ -146,8 +149,10 @@ public class OrderService {
             .map(OrderItem::getProductId)
             .toList();
 
-        Map<Long, Product> productMap = productService.findAllByIds(productIds).stream()
-            .collect(Collectors.toMap(Product::getId, Function.identity()));
+        Map<Long, Product> productMap = productService.getAllProductsByIdsForUpdate(productIds).stream()
+            .collect(
+                Collectors.toMap(Product::getId, Function.identity())
+            );
 
         order.getOrderItems().forEach(item -> {
             Product product = productMap.get(item.getProductId());
